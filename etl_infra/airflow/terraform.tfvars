@@ -1,0 +1,8 @@
+default_region             = "us-west-2"
+airflow_scheduler_app_name = "airflow-scheduler-ecs-ec2-app"
+airflow_worker_app_name    = "airflow-worker-ecs-ec2-app"
+vpc_id                     = "vpc-0cea98fddde261f0a"
+public_subnet_id_1         = "subnet-02ffdbac46c53990c"
+public_subnet_id_2         = "subnet-09ceb29797d8462a5"
+s3_log_bucket              = "gbd-data-platform-dev-logs"
+region                     = "us-west-2"

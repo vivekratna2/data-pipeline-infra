@@ -1,0 +1,150 @@
+#!/bin/bash
+
+initialize_application() {
+  # apt-get update
+
+  # Install and run docker
+  # snap install docker
+  sudo mkdir /home/ec2-user/html-parser-worker
+  sudo chown -R ec2-user:ec2-user /home/ec2-user/html-parser-worker
+  # apt-get install awscli -y
+
+  aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 368759994472.dkr.ecr.us-west-2.amazonaws.com
+  echo "docker pull  ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/html-parser:${RELEASE_VERSION}"
+  docker pull ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/html-parser:${RELEASE_VERSION}
+  docker pull ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/html-parser-browser:${RELEASE_VERSION}
+
+  # Save the docker-compose.yml
+  echo "Saving docker compose.yml"
+  echo "
+  version: '3.9'
+  services:
+    worker:
+      image: ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/html-parser:${RELEASE_VERSION}
+      volumes:
+        - data-volume:/tmp/dumps
+      command: |
+        bash -c \"celery -A app.main worker --loglevel=info -Q celery,parser,browser -n parser@%h\"
+      env_file:
+        - ./.env
+      restart: always
+      networks:
+      - html-parser-network
+
+    selenium-hub:
+      image: selenium/hub:latest
+      container_name: selenium-hub
+      ports:
+        - \"4442:4442\"
+        - \"4443:4443\"
+        - \"4444:4444\"
+      volumes:
+        - data-volume:/tmp/dumps
+      networks:
+      - html-parser-network
+
+    seleinum-chrome:
+      image: selenium/node-chrome:latest
+      depends_on:
+        - selenium-hub
+      deploy:
+        replicas: 4
+      environment:
+        - SE_EVENT_BUS_HOST=selenium-hub
+        - SE_EVENT_BUS_PUBLISH_PORT=4442
+        - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      volumes:
+        - data-volume:/tmp/dumps
+      networks:
+      - html-parser-network
+
+  volumes:
+    data-volume:
+  networks:
+    html-parser-network:
+      ipam:
+        config:
+          - subnet: 181.3.0.0/16
+  " > /home/ec2-user/html-parser-worker/docker-compose.yml
+
+  echo "
+  ENVIRONMENT=${ENVIRONMENT}
+  REDIS_RESULT_EXPIRE_DAYS=${REDIS_RESULT_EXPIRE_DAYS}
+  SCHEME_API_HOST=${SCHEME_API_HOST}
+  FLOWER_PORT=${FLOWER_PORT}
+  REDIS_HOST=${REDIS_HOST}
+  REDIS_PORT=${REDIS_PORT}
+  REDIS_DB=${REDIS_DB}
+  REDIS_DB_SCHEME_CACHE=${REDIS_DB_SCHEME_CACHE}
+  FLASK_PORT=${FLASK_PORT}
+  RELEASE_VERSION=${RELEASE_VERSION}
+  MONGODB_USERNAME=${MONGODB_USERNAME}
+  MONGODB_PASSWORD=${MONGODB_PASSWORD}
+  MONGODB_PORT=${MONGODB_PORT}us-east-1
+  US_IP=${US_IP}
+  CA_IP=${CA_IP}
+  DEV_IP=${DEV_IP}
+  POSTGRES_HOST=${POSTGRES_HOST}
+  POSTGRES_PORT=${POSTGRES_PORT}
+  POSTGRES_USER=${POSTGRES_USER}
+  POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  POSTGRES_DB=${POSTGRES_DB}
+  US_TOKEN=${US_TOKEN}
+  DEV_TOKEN=${DEV_TOKEN}
+  etl_API_GATEWAY_URL=${etl_API_GATEWAY_URL}
+  etl_API_KEY=${etl_API_KEY}
+  REDIS_DB_SCHEME_CACHE=${REDIS_DB_SCHEME_CACHE}
+  " > /home/ec2-user/html-parser-worker/.env
+
+  echo "Saved docker compose"
+  docker-compose -f /home/ec2-user/html-parser-worker/docker-compose.yml up -d
+}
+
+get_target_state() {
+  echo "$(curl -s http://169.254.169.254/latest/meta-data/autoscaling/target-lifecycle-state)"
+}
+
+get_instance_id() {
+    echo "$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
+}
+
+complete_lifecycle_action() {
+    instance_id=$(get_instance_id)
+    group_name='html_parser_asg_dev'
+    region='us-west-2'
+
+    echo $instance_id
+    echo $region
+    echo $(aws autoscaling complete-lifecycle-action \
+      --lifecycle-hook-name woker_lifecycle_hook \
+      --auto-scaling-group-name $group_name \
+      --lifecycle-action-result CONTINUE \
+      --instance-id $instance_id \
+      --region $region)
+}
+
+instance_state() {
+    while true
+    do
+        target_state=$(get_target_state)
+        if [ \"$target_state\" = \"Terminated\" ]; then
+            cd /home/ec2-user/html-parser-worker
+            sudo docker-compose down
+            complete_lifecycle_action
+            break
+        fi
+        echo $target_state
+        sleep 5
+    done
+}
+
+main () {
+    sudo su
+    echo "Start of init app"
+    initialize_application
+    echo "End of init app"
+    instance_state
+    get_target_state
+}
+
+main

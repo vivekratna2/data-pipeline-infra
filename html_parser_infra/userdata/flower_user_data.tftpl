@@ -1,0 +1,70 @@
+#!/bin/bash
+#sudo su
+#apt-get update
+
+# Install and run docker
+#snap install docker
+#mkdir /home/ubuntu/html-parser
+#mkdir /home/ec2-user/html-parser
+#apt-get install awscli -y
+
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 368759994472.dkr.ecr.us-west-2.amazonaws.com
+echo "docker pull  ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/html-parser:${RELEASE_VERSION}"
+docker pull ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/html-parser:${RELEASE_VERSION}
+
+# Save the docker-compose.yml
+echo "Saving docker compose.yml"
+echo "
+version: '3.9'
+services:
+  flower:
+    image:
+      ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/html-parser:${RELEASE_VERSION}
+    command: |
+      bash -c \"celery -A app.main flower --port=5555 --conf=flowerconfig.py --purge_offline_workers=2\"
+    env_file:
+      - ./.env
+    ports:
+      - ${FLOWER_PORT}:5555
+    restart: always
+    networks:
+      - html-parser-network
+networks:
+  html-parser-network:
+    ipam:
+      config:
+        - subnet: 181.2.0.0/16
+" > /home/ec2-user/html-parser/docker-compose.yml
+
+echo "
+ENVIRONMENT=${ENVIRONMENT}
+REDIS_RESULT_EXPIRE_DAYS=${REDIS_RESULT_EXPIRE_DAYS}
+SCHEME_API_HOST=${SCHEME_API_HOST}
+FLOWER_PORT=${FLOWER_PORT}
+REDIS_HOST=${REDIS_HOST}
+REDIS_PORT=${REDIS_PORT}
+REDIS_DB=${REDIS_DB}
+REDIS_DB_SCHEME_CACHE=${REDIS_DB_SCHEME_CACHE}
+FLASK_PORT=${FLASK_PORT}
+RELEASE_VERSION=${RELEASE_VERSION}
+MONGODB_USERNAME=${MONGODB_USERNAME}
+MONGODB_PASSWORD=${MONGODB_PASSWORD}
+MONGODB_PORT=${MONGODB_PORT}
+US_IP=${US_IP}
+CA_IP=${CA_IP}
+DEV_IP=${DEV_IP}
+POSTGRES_HOST=${POSTGRES_HOST}
+POSTGRES_PORT=${POSTGRES_PORT}
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB}
+US_TOKEN=${US_TOKEN}
+DEV_TOKEN=${DEV_TOKEN}
+etl_API_GATEWAY_URL=${etl_API_GATEWAY_URL}
+etl_API_KEY=${etl_API_KEY}
+REDIS_DB_SCHEME_CACHE=${REDIS_DB_SCHEME_CACHE}
+" > /home/ec2-user/html-parser/.env
+
+echo "Saved docker compose"
+docker-compose -f /home/ec2-user/html-parser/docker-compose.yml up -d
+  EOF

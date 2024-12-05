@@ -1,0 +1,17 @@
+REDIS_HOST                   = "html_parser_redis"
+REDIS_PORT                   = 6379
+REDIS_DB                     = 0
+REDIS_PASS                   = "REDIS_PASS"
+REDIS_RESULT_EXPIRE_DAYS     = 1
+FLOWER_PORT                  = 5556
+FLASK_PORT                   = 8005
+EC2_AMI                      = "ami-02292a1526f51d0bb"
+EC2_INSTANCE_TYPE_WEB_SERVER = "t3.micro"
+EC2_INSTANCE_TYPE_WORKER     = "c6a.xlarge"
+SCHEME_API_HOST              = "SCHEME_API_HOST"
+RELEASE_VERSION              = "latest"
+AWS_ACCESS_KEY               = "AWS_ACCESS_KEY"
+AWS_SECRET_KEY               = "AWS_SECRET_KEY"
+VPC_ID                       = "vpc-03e2c4cbf129339ee"
+#PUBLIC_SUBNET_ID             = "subnet-0b5659952a7ab37d3"
+PRIVATE_SUBNET_ID = "subnet-0e82ef775f77fd119"

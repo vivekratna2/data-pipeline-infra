@@ -1,0 +1,7 @@
+default_region         = "us-west-2"
+redis_app_name         = "feeds_airflow_redis_app"
+postgres_app_name      = "feeds_airflow_postgres_app"
+airflow_db_server_name = "airflow_db_server_name"
+vpc_id                 = "vpc-0cea98fddde261f0a"
+public_subnet_id       = "subnet-02ffdbac46c53990c"
+region                 = "us-west-2"
